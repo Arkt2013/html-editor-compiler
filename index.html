@@ -1,0 +1,1265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HTML Live Editor — Split-Screen Compiler</title>
+  <style>
+    /* ==========================================================================
+       1. CSS Custom Properties & Theme Tokens (Light Mode Default + Dark Mode)
+       ========================================================================== */
+    :root {
+      --bg-app: #f1f5f9;
+      --bg-toolbar: #ffffff;
+      --bg-pane-header: #f8fafc;
+      --bg-editor: #ffffff;
+      --bg-gutter: #f8fafc;
+      --bg-btn: #f1f5f9;
+      --bg-btn-hover: #e2e8f0;
+      --bg-badge: #e2e8f0;
+      --bg-modal: #ffffff;
+      --bg-overlay: rgba(15, 23, 42, 0.55);
+
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #64748b;
+      --text-gutter: #94a3b8;
+      --text-editor: #1e293b;
+
+      --border-color: #cbd5e1;
+      --border-subtle: #e2e8f0;
+
+      /* W3Schools-inspired Emerald Green Run Accent */
+      --accent-run: #04aa6d;
+      --accent-run-hover: #059862;
+      --accent-run-active: #047857;
+      --accent-ring: rgba(4, 170, 109, 0.25);
+
+      --resizer-bg: #e2e8f0;
+      --resizer-grip: #94a3b8;
+      --resizer-active: #04aa6d;
+
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+      --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --font-mono: "Consolas", "Monaco", "Courier New", Courier, monospace;
+    }
+
+    /* Dark Mode Theme Overrides */
+    [data-theme="dark"] {
+      --bg-app: #0f172a;
+      --bg-toolbar: #1e293b;
+      --bg-pane-header: #162032;
+      --bg-editor: #0d1117;
+      --bg-gutter: #131922;
+      --bg-btn: #334155;
+      --bg-btn-hover: #475569;
+      --bg-badge: #334155;
+      --bg-modal: #1e293b;
+      --bg-overlay: rgba(0, 0, 0, 0.7);
+
+      --text-primary: #f8fafc;
+      --text-secondary: #cbd5e1;
+      --text-muted: #94a3b8;
+      --text-gutter: #64748b;
+      --text-editor: #e2e8f0;
+
+      --border-color: #334155;
+      --border-subtle: #1e293b;
+
+      --resizer-bg: #1e293b;
+      --resizer-grip: #64748b;
+      --resizer-active: #04aa6d;
+    }
+
+    /* ==========================================================================
+       2. Base & Reset Styles
+       ========================================================================== */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      font-family: var(--font-sans);
+      background-color: var(--bg-app);
+      color: var(--text-primary);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Prevent text selection and iframe mouse-trapping during split-pane drag */
+    body.is-dragging {
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body.is-dragging.drag-horizontal {
+      cursor: col-resize;
+    }
+
+    body.is-dragging.drag-vertical {
+      cursor: row-resize;
+    }
+
+    body.is-dragging iframe {
+      pointer-events: none !important;
+    }
+
+    /* ==========================================================================
+       3. App Shell & Header Toolbar
+       ========================================================================== */
+    .app-container {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      height: 100dvh;
+      width: 100%;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      height: 56px;
+      padding: 0 16px;
+      background-color: var(--bg-toolbar);
+      border-bottom: 1px solid var(--border-color);
+      box-shadow: var(--shadow-sm);
+      flex-shrink: 0;
+      z-index: 20;
+    }
+
+    .toolbar-left,
+    .toolbar-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 1.05rem;
+      letter-spacing: -0.01em;
+      color: var(--text-primary);
+      white-space: nowrap;
+    }
+
+    .brand-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #04aa6d, #0284c7);
+      color: #ffffff;
+      flex-shrink: 0;
+    }
+
+    /* Standard Toolbar Utility Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      height: 36px;
+      padding: 0 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      background-color: var(--bg-btn);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+      white-space: nowrap;
+    }
+
+    .btn:hover {
+      background-color: var(--bg-btn-hover);
+    }
+
+    .btn:active {
+      transform: translateY(1px);
+    }
+
+    .btn:focus-visible {
+      outline: 2px solid var(--accent-run);
+      outline-offset: 2px;
+    }
+
+    .btn svg {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+    }
+
+    /* Prominent Green Run Button */
+    .btn-run {
+      background-color: var(--accent-run);
+      border-color: var(--accent-run);
+      color: #ffffff;
+      font-weight: 600;
+      padding: 0 18px;
+      box-shadow: 0 2px 6px rgba(4, 170, 109, 0.3);
+    }
+
+    .btn-run:hover {
+      background-color: var(--accent-run-hover);
+      border-color: var(--accent-run-hover);
+    }
+
+    .btn-run:active {
+      background-color: var(--accent-run-active);
+    }
+
+    .btn-danger-outline:hover {
+      border-color: #ef4444;
+      color: #ef4444;
+    }
+
+    /* ==========================================================================
+       4. Split-Screen Workspace & Resizer
+       ========================================================================== */
+    .workspace {
+      display: flex;
+      flex-direction: row; /* Default: side-by-side */
+      flex: 1;
+      min-height: 0;
+      min-width: 0;
+      width: 100%;
+      position: relative;
+    }
+
+    .workspace.layout-stacked {
+      flex-direction: column;
+    }
+
+    .pane {
+      display: flex;
+      flex-direction: column;
+      min-width: 140px;
+      min-height: 120px;
+      overflow: hidden;
+    }
+
+    .editor-pane {
+      flex: 0 0 50%;
+      background-color: var(--bg-editor);
+    }
+
+    .preview-pane {
+      flex: 1 1 auto;
+      background-color: #ffffff;
+    }
+
+    /* Sub-headers at the top of Editor & Preview Panes */
+    .pane-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 34px;
+      padding: 0 12px;
+      background-color: var(--bg-pane-header);
+      border-bottom: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      font-size: 0.78rem;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .pane-title {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: var(--accent-run);
+      display: inline-block;
+    }
+
+    .pane-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 400;
+      color: var(--text-muted);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 6px;
+      background-color: var(--bg-badge);
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-size: 0.74rem;
+      font-weight: 500;
+      transition: background-color 0.15s ease, color 0.15s ease;
+    }
+
+    .badge.is-resizing {
+      background-color: var(--accent-run);
+      color: #ffffff;
+    }
+
+    /* Draggable Resizer Divider */
+    .resizer {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: var(--resizer-bg);
+      border-left: 1px solid var(--border-color);
+      border-right: 1px solid var(--border-color);
+      width: 10px;
+      cursor: col-resize;
+      flex-shrink: 0;
+      z-index: 10;
+      touch-action: none;
+      transition: background-color 0.15s ease;
+    }
+
+    .resizer::after {
+      content: "";
+      width: 3px;
+      height: 36px;
+      border-radius: 999px;
+      background-color: var(--resizer-grip);
+      transition: background-color 0.15s ease, transform 0.15s ease;
+    }
+
+    .resizer:hover,
+    .resizer.active {
+      background-color: rgba(4, 170, 109, 0.15);
+    }
+
+    .resizer:hover::after,
+    .resizer.active::after {
+      background-color: var(--resizer-active);
+      transform: scaleY(1.15);
+    }
+
+    /* Stacked (Vertical Split) Resizer Orientation */
+    .workspace.layout-stacked .resizer {
+      width: 100%;
+      height: 10px;
+      cursor: row-resize;
+      border-left: none;
+      border-right: none;
+      border-top: 1px solid var(--border-color);
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .workspace.layout-stacked .resizer::after {
+      width: 36px;
+      height: 3px;
+    }
+
+    .workspace.layout-stacked .resizer:hover::after,
+    .workspace.layout-stacked .resizer.active::after {
+      transform: scaleX(1.15);
+    }
+
+    /* ==========================================================================
+       5. Left Pane: Line-Numbered Code Editor
+       ========================================================================== */
+    .editor-wrapper {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+      position: relative;
+      background-color: var(--bg-editor);
+    }
+
+    /* Synchronized Line Number Gutter */
+    .line-numbers {
+      width: 50px;
+      padding: 16px 10px 16px 0;
+      background-color: var(--bg-gutter);
+      border-right: 1px solid var(--border-subtle);
+      color: var(--text-gutter);
+      font-family: var(--font-mono);
+      font-size: 14px;
+      line-height: 1.6;
+      text-align: right;
+      user-select: none;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .line-numbers div {
+      height: 22.4px; /* Matches 14px * 1.6 exact line-height */
+    }
+
+    /* Main Code Textarea */
+    .code-textarea {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      padding: 16px;
+      border: none;
+      outline: none;
+      resize: none;
+      background-color: var(--bg-editor);
+      color: var(--text-editor);
+      font-family: var(--font-mono);
+      font-size: 14px;
+      line-height: 1.6;
+      tab-size: 2;
+      -moz-tab-size: 2;
+      white-space: pre;
+      overflow: auto;
+      caret-color: var(--accent-run);
+    }
+
+    .code-textarea::selection {
+      background-color: rgba(4, 170, 109, 0.22);
+    }
+
+    /* ==========================================================================
+       6. Right Pane: Live Output Iframe
+       ========================================================================== */
+    .preview-wrapper {
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+      height: 100%;
+      background-color: #ffffff;
+      position: relative;
+    }
+
+    .preview-iframe {
+      display: block;
+      width: 100%;
+      height: 100%;
+      border: none;
+      background-color: #ffffff;
+    }
+
+    /* ==========================================================================
+       7. Custom Confirmation Modal & Toast Notification (No alert/confirm)
+       ========================================================================== */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background-color: var(--bg-overlay);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 100;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.18s ease, visibility 0.18s ease;
+    }
+
+    .modal-backdrop.open {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .modal-card {
+      width: 100%;
+      max-width: 400px;
+      background-color: var(--bg-modal);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: var(--shadow-lg);
+      transform: translateY(8px) scale(0.98);
+      transition: transform 0.18s ease;
+    }
+
+    .modal-backdrop.open .modal-card {
+      transform: translateY(0) scale(1);
+    }
+
+    .modal-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: var(--text-primary);
+    }
+
+    .modal-body {
+      font-size: 0.9rem;
+      line-height: 1.5;
+      color: var(--text-secondary);
+      margin-bottom: 20px;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .btn-danger {
+      background-color: #ef4444;
+      border-color: #ef4444;
+      color: #ffffff;
+    }
+
+    .btn-danger:hover {
+      background-color: #dc2626;
+      border-color: #dc2626;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 10px 16px;
+      border-radius: 8px;
+      background-color: #0f172a;
+      color: #ffffff;
+      font-size: 0.85rem;
+      font-weight: 500;
+      box-shadow: var(--shadow-lg);
+      z-index: 90;
+      opacity: 0;
+      transform: translateY(10px);
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ==========================================================================
+       8. Responsive Breakpoints (Auto-Stack on Mobile & Small Screens)
+       ========================================================================== */
+    @media (max-width: 768px) {
+      .toolbar {
+        padding: 0 10px;
+        gap: 6px;
+      }
+
+      .brand-text {
+        display: none;
+      }
+
+      .btn-label {
+        display: none;
+      }
+
+      .btn {
+        padding: 0 10px;
+      }
+
+      .btn-run {
+        padding: 0 14px;
+      }
+
+      .btn-run .btn-label {
+        display: inline;
+      }
+
+      .shortcut-hint {
+        display: none;
+      }
+
+      /* Automatically stack panes vertically on narrow screens */
+      .workspace {
+        flex-direction: column;
+      }
+
+      .workspace .resizer {
+        width: 100%;
+        height: 10px;
+        cursor: row-resize;
+        border-left: none;
+        border-right: none;
+        border-top: 1px solid var(--border-color);
+        border-bottom: 1px solid var(--border-color);
+      }
+
+      .workspace .resizer::after {
+        width: 36px;
+        height: 3px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Top Header Toolbar -->
+    <header class="toolbar">
+      <div class="toolbar-left">
+        <div class="brand" title="HTML Live Editor">
+          <div class="brand-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="16 18 22 12 16 6"></polyline>
+              <polyline points="8 6 2 12 8 18"></polyline>
+            </svg>
+          </div>
+          <span class="brand-text">HTML Live Editor</span>
+        </div>
+
+        <!-- Prominent Green Run Button -->
+        <button type="button" id="run-btn" class="btn btn-run" title="Run Code (Ctrl + Enter)">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <polygon points="6 4 20 12 6 20 6 4"></polygon>
+          </svg>
+          <span class="btn-label">Run &#10095;</span>
+        </button>
+      </div>
+
+      <!-- Toolbar Utility Controls -->
+      <div class="toolbar-right">
+        <!-- Layout Orientation Toggle -->
+        <button type="button" id="layout-btn" class="btn" title="Switch Split Orientation (Horizontal / Vertical)">
+          <svg id="layout-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="12" y1="3" x2="12" y2="21"></line>
+          </svg>
+          <span class="btn-label" id="layout-label">Stacked</span>
+        </button>
+
+        <!-- Light / Dark Theme Toggle -->
+        <button type="button" id="theme-btn" class="btn" title="Toggle Dark / Light Theme">
+          <svg id="theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+          <svg id="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;" aria-hidden="true">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+          </svg>
+          <span class="btn-label" id="theme-label">Dark</span>
+        </button>
+
+        <!-- Reset Code Button -->
+        <button type="button" id="reset-btn" class="btn btn-danger-outline" title="Reset to Starter Template">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="1 4 1 10 7 10"></polyline>
+            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+          </svg>
+          <span class="btn-label">Reset</span>
+        </button>
+
+        <!-- Download index.html Button -->
+        <button type="button" id="download-btn" class="btn" title="Download as index.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span class="btn-label">Download</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Split-Screen Workspace -->
+    <main class="workspace" id="workspace">
+      <!-- Left / Top Pane: Code Editor -->
+      <section class="pane editor-pane" id="editor-pane" aria-label="Source Code Editor">
+        <div class="pane-header">
+          <div class="pane-title">
+            <span>index.html</span>
+          </div>
+          <div class="pane-meta">
+            <span id="cursor-pos">Ln 1, Col 1</span>
+            <span class="badge shortcut-hint">Ctrl + Enter</span>
+          </div>
+        </div>
+        <div class="editor-wrapper">
+          <div class="line-numbers" id="line-numbers" aria-hidden="true"><div>1</div></div>
+          <textarea
+            id="code-editor"
+            class="code-textarea"
+            spellcheck="false"
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="off"
+            aria-label="HTML, CSS, and JavaScript code input"
+          ></textarea>
+        </div>
+      </section>
+
+      <!-- Draggable Split Divider Bar -->
+      <div
+        class="resizer"
+        id="resizer"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize editor and preview panes"
+        tabindex="0"
+        title="Drag to resize panes (Double-click to reset 50/50)"
+      ></div>
+
+      <!-- Right / Bottom Pane: Live Output Preview -->
+      <section class="pane preview-pane" id="preview-pane" aria-label="Live Output Preview">
+        <div class="pane-header">
+          <div class="pane-title">
+            <span class="status-dot" aria-hidden="true"></span>
+            <span>Output</span>
+          </div>
+          <div class="pane-meta">
+            <span class="badge" id="dimensions-badge" title="Output Viewport Width x Height">-- &times; -- px</span>
+          </div>
+        </div>
+        <div class="preview-wrapper" id="preview-wrapper">
+          <iframe
+            id="preview-frame"
+            class="preview-iframe"
+            title="Live HTML Output"
+            sandbox="allow-scripts allow-modals allow-forms allow-popups allow-same-origin"
+          ></iframe>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Custom Non-Blocking Confirmation Modal for Reset -->
+  <div class="modal-backdrop" id="reset-modal" role="dialog" aria-modal="true" aria-labelledby="reset-modal-title">
+    <div class="modal-card">
+      <h2 class="modal-title" id="reset-modal-title">Reset Editor Code?</h2>
+      <p class="modal-body">
+        This will replace your current code with the default HTML5 starter template. Any unsaved changes will be lost.
+      </p>
+      <div class="modal-actions">
+        <button type="button" class="btn" id="cancel-reset-btn">Cancel</button>
+        <button type="button" class="btn btn-danger" id="confirm-reset-btn">Reset Code</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Subtle Status Toast -->
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      /* ========================================================================
+         1. Default Starter HTML5 Boilerplate Template
+         ======================================================================== */
+      const STARTER_TEMPLATE = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Preview Demo</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%);
+      color: #1e293b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+
+    .card {
+      background: #ffffff;
+      max-width: 440px;
+      width: 100%;
+      padding: 32px;
+      border-radius: 16px;
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+      text-align: center;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: 1.65rem;
+      color: #0f172a;
+    }
+
+    p {
+      margin: 0 0 24px;
+      line-height: 1.6;
+      color: #475569;
+    }
+
+    button {
+      background-color: #04aa6d;
+      color: #ffffff;
+      border: none;
+      padding: 12px 24px;
+      font-size: 1rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: transform 0.15s ease, background-color 0.15s ease;
+    }
+
+    button:hover {
+      background-color: #059862;
+      transform: translateY(-1px);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    #counter-output {
+      margin-top: 18px;
+      font-weight: 600;
+      color: #04aa6d;
+      font-size: 0.95rem;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h1>Hello, World!</h1>
+    <p>
+      Edit the HTML, CSS, or JavaScript on the left and click
+      <strong>Run &#10095;</strong> (or press <strong>Ctrl + Enter</strong>)
+      to see your changes live.
+    </p>
+    <button id="demo-btn" onclick="handleButtonClick()">Click Me!</button>
+    <div id="counter-output">Button clicks: 0</div>
+  </div>
+
+  <script>
+    let clickCount = 0;
+    const accents = ["#04aa6d", "#0284c7", "#7c3aed", "#db2777", "#ea580c"];
+
+    function handleButtonClick() {
+      clickCount++;
+      const color = accents[clickCount % accents.length];
+      const btn = document.getElementById("demo-btn");
+      const output = document.getElementById("counter-output");
+
+      btn.style.backgroundColor = color;
+      output.style.color = color;
+      output.textContent = "Button clicks: " + clickCount;
+    }
+  <\/script>
+
+</body>
+</html>`;
+
+      /* ========================================================================
+         2. DOM Element References & Application State
+         ======================================================================== */
+      const workspace = document.getElementById("workspace");
+      const editorPane = document.getElementById("editor-pane");
+      const resizer = document.getElementById("resizer");
+      const codeEditor = document.getElementById("code-editor");
+      const lineNumbers = document.getElementById("line-numbers");
+      const cursorPos = document.getElementById("cursor-pos");
+      const previewWrapper = document.getElementById("preview-wrapper");
+      const previewFrame = document.getElementById("preview-frame");
+      const dimensionsBadge = document.getElementById("dimensions-badge");
+
+      const runBtn = document.getElementById("run-btn");
+      const layoutBtn = document.getElementById("layout-btn");
+      const layoutLabel = document.getElementById("layout-label");
+      const layoutIcon = document.getElementById("layout-icon");
+      const themeBtn = document.getElementById("theme-btn");
+      const themeLabel = document.getElementById("theme-label");
+      const themeIconMoon = document.getElementById("theme-icon-moon");
+      const themeIconSun = document.getElementById("theme-icon-sun");
+      const resetBtn = document.getElementById("reset-btn");
+      const downloadBtn = document.getElementById("download-btn");
+
+      const resetModal = document.getElementById("reset-modal");
+      const cancelResetBtn = document.getElementById("cancel-reset-btn");
+      const confirmResetBtn = document.getElementById("confirm-reset-btn");
+      const toastEl = document.getElementById("toast");
+
+      let lastLineCount = 0;
+      let isStacked = false;
+      let isDarkTheme = false;
+      let isDragging = false;
+      let toastTimer = null;
+
+      /* ========================================================================
+         3. Toast Notification Helper
+         ======================================================================== */
+      function showToast(message) {
+        toastEl.textContent = message;
+        toastEl.classList.add("show");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () {
+          toastEl.classList.remove("show");
+        }, 2200);
+      }
+
+      /* ========================================================================
+         4. Code Compilation & Live Preview Execution
+         ======================================================================== */
+      function runCode(notify) {
+        try {
+          const sourceCode = codeEditor.value;
+          // Clearing srcdoc briefly guarantees scripts re-run even if source is unchanged
+          previewFrame.removeAttribute("srcdoc");
+          previewFrame.srcdoc = sourceCode;
+
+          if (notify) {
+            showToast("Output updated");
+          }
+        } catch (err) {
+          console.error("Failed to render preview:", err);
+        }
+      }
+
+      /* ========================================================================
+         5. Synchronized Line Numbers & Cursor Tracker
+         ======================================================================== */
+      function updateLineNumbers() {
+        const lines = codeEditor.value.split("\n").length;
+        if (lines === lastLineCount) return;
+
+        lastLineCount = lines;
+        const fragment = document.createDocumentFragment();
+        for (let i = 1; i <= lines; i++) {
+          const div = document.createElement("div");
+          div.textContent = i;
+          fragment.appendChild(div);
+        }
+        lineNumbers.innerHTML = "";
+        lineNumbers.appendChild(fragment);
+      }
+
+      function syncLineScroll() {
+        lineNumbers.scrollTop = codeEditor.scrollTop;
+      }
+
+      function updateCursorPosition() {
+        const selectionStart = codeEditor.selectionStart || 0;
+        const textBeforeCursor = codeEditor.value.substring(0, selectionStart);
+        const lines = textBeforeCursor.split("\n");
+        const currentLine = lines.length;
+        const currentCol = lines[lines.length - 1].length + 1;
+        cursorPos.textContent = "Ln " + currentLine + ", Col " + currentCol;
+      }
+
+      /* ========================================================================
+         6. Tab Key Indentation & Keyboard Shortcuts (Ctrl/Cmd + Enter)
+         ======================================================================== */
+      function handleEditorKeydown(e) {
+        // Compile & Run on Ctrl + Enter or Cmd + Enter
+        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+          e.preventDefault();
+          runCode(true);
+          return;
+        }
+
+        // Handle Tab / Shift + Tab indentation inside the textarea
+        if (e.key === "Tab") {
+          e.preventDefault();
+          const indent = "  "; // 2 spaces
+          const start = codeEditor.selectionStart;
+          const end = codeEditor.selectionEnd;
+          const value = codeEditor.value;
+
+          if (start === end && !e.shiftKey) {
+            // Simple caret insertion
+            codeEditor.value = value.substring(0, start) + indent + value.substring(end);
+            codeEditor.selectionStart = codeEditor.selectionEnd = start + indent.length;
+          } else {
+            // Multi-line or Shift+Tab block indentation
+            const lineStart = value.lastIndexOf("\n", start - 1) + 1;
+            const lineEndIdx = value.indexOf("\n", end);
+            const lineEnd = lineEndIdx === -1 ? value.length : lineEndIdx;
+            const selectedBlock = value.substring(lineStart, lineEnd);
+            const blockLines = selectedBlock.split("\n");
+
+            let newLines;
+            let firstLineDelta = 0;
+            let totalDelta = 0;
+
+            if (e.shiftKey) {
+              newLines = blockLines.map(function (line, idx) {
+                if (line.startsWith(indent)) {
+                  if (idx === 0) firstLineDelta = -indent.length;
+                  totalDelta -= indent.length;
+                  return line.slice(indent.length);
+                } else if (line.startsWith(" ")) {
+                  if (idx === 0) firstLineDelta = -1;
+                  totalDelta -= 1;
+                  return line.slice(1);
+                }
+                return line;
+              });
+            } else {
+              newLines = blockLines.map(function (line, idx) {
+                if (idx === 0) firstLineDelta = indent.length;
+                totalDelta += indent.length;
+                return indent + line;
+              });
+            }
+
+            const replacement = newLines.join("\n");
+            codeEditor.value = value.substring(0, lineStart) + replacement + value.substring(lineEnd);
+            codeEditor.selectionStart = Math.max(lineStart, start + firstLineDelta);
+            codeEditor.selectionEnd = Math.max(lineStart, end + totalDelta);
+          }
+
+          updateLineNumbers();
+          updateCursorPosition();
+        }
+      }
+
+      /* ========================================================================
+         7. Draggable Split-Screen Resizer (Mouse + Touch)
+         ======================================================================== */
+      function isEffectivelyStacked() {
+        return isStacked || window.innerWidth <= 768;
+      }
+
+      function startDrag(e) {
+        isDragging = true;
+        const stacked = isEffectivelyStacked();
+
+        resizer.classList.add("active");
+        dimensionsBadge.classList.add("is-resizing");
+        document.body.classList.add("is-dragging", stacked ? "drag-vertical" : "drag-horizontal");
+
+        if (e.cancelable) {
+          e.preventDefault();
+        }
+      }
+
+      function onDragMove(e) {
+        if (!isDragging) return;
+
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        const rect = workspace.getBoundingClientRect();
+        const stacked = isEffectivelyStacked();
+
+        if (stacked) {
+          const offsetY = clientY - rect.top;
+          const percentage = (offsetY / rect.height) * 100;
+          const clamped = Math.min(85, Math.max(15, percentage));
+          editorPane.style.flexBasis = clamped + "%";
+        } else {
+          const offsetX = clientX - rect.left;
+          const percentage = (offsetX / rect.width) * 100;
+          const clamped = Math.min(85, Math.max(15, percentage));
+          editorPane.style.flexBasis = clamped + "%";
+        }
+
+        updateViewportDimensions();
+      }
+
+      function stopDrag() {
+        if (!isDragging) return;
+        isDragging = false;
+        resizer.classList.remove("active");
+        dimensionsBadge.classList.remove("is-resizing");
+        document.body.classList.remove("is-dragging", "drag-horizontal", "drag-vertical");
+      }
+
+      // Reset split ratio back to 50% / 50% on resizer double-click
+      function resetSplitRatio() {
+        editorPane.style.flexBasis = "50%";
+        updateViewportDimensions();
+        showToast("Split ratio reset to 50 / 50");
+      }
+
+      /* ========================================================================
+         8. Live Output Viewport Dimension Indicator
+         ======================================================================== */
+      function updateViewportDimensions() {
+        const rect = previewWrapper.getBoundingClientRect();
+        const width = Math.round(rect.width);
+        const height = Math.round(rect.height);
+        dimensionsBadge.textContent = width + " \u00D7 " + height + " px";
+      }
+
+      if (typeof ResizeObserver !== "undefined") {
+        const observer = new ResizeObserver(function () {
+          updateViewportDimensions();
+        });
+        observer.observe(previewWrapper);
+      }
+
+      /* ========================================================================
+         9. Layout Orientation & Theme Toggles
+         ======================================================================== */
+      function toggleLayout() {
+        isStacked = !isStacked;
+        workspace.classList.toggle("layout-stacked", isStacked);
+        editorPane.style.flexBasis = "50%";
+
+        if (isStacked) {
+          layoutLabel.textContent = "Side-by-Side";
+          resizer.setAttribute("aria-orientation", "horizontal");
+          layoutIcon.innerHTML =
+            '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>' +
+            '<line x1="3" y1="12" x2="21" y2="12"></line>';
+        } else {
+          layoutLabel.textContent = "Stacked";
+          resizer.setAttribute("aria-orientation", "vertical");
+          layoutIcon.innerHTML =
+            '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>' +
+            '<line x1="12" y1="3" x2="12" y2="21"></line>';
+        }
+
+        updateViewportDimensions();
+      }
+
+      function applyTheme(dark) {
+        isDarkTheme = dark;
+        if (isDarkTheme) {
+          document.documentElement.setAttribute("data-theme", "dark");
+          themeLabel.textContent = "Light";
+          themeIconMoon.style.display = "none";
+          themeIconSun.style.display = "inline";
+        } else {
+          document.documentElement.removeAttribute("data-theme");
+          themeLabel.textContent = "Dark";
+          themeIconMoon.style.display = "inline";
+          themeIconSun.style.display = "none";
+        }
+
+        try {
+          localStorage.setItem("html_live_editor_theme", isDarkTheme ? "dark" : "light");
+        } catch (err) {
+          // Ignore storage restrictions in sandboxed environments
+        }
+      }
+
+      /* ========================================================================
+         10. Reset Modal & Download File Handlers
+         ======================================================================== */
+      function openResetModal() {
+        resetModal.classList.add("open");
+        confirmResetBtn.focus();
+      }
+
+      function closeResetModal() {
+        resetModal.classList.remove("open");
+        codeEditor.focus();
+      }
+
+      function performReset() {
+        codeEditor.value = STARTER_TEMPLATE;
+        lastLineCount = 0;
+        updateLineNumbers();
+        updateCursorPosition();
+        runCode(false);
+        closeResetModal();
+        showToast("Code reset to starter template");
+      }
+
+      function downloadHtmlFile() {
+        try {
+          const content = codeEditor.value;
+          const blob = new Blob([content], { type: "text/html;charset=utf-8" });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+
+          link.href = url;
+          link.download = "index.html";
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+
+          showToast("Downloaded index.html");
+        } catch (err) {
+          console.error("Download failed:", err);
+          showToast("Unable to download file");
+        }
+      }
+
+      /* ========================================================================
+         11. Event Listeners & Initialization
+         ======================================================================== */
+      runBtn.addEventListener("click", function () {
+        runCode(true);
+      });
+
+      layoutBtn.addEventListener("click", toggleLayout);
+
+      themeBtn.addEventListener("click", function () {
+        applyTheme(!isDarkTheme);
+      });
+
+      resetBtn.addEventListener("click", openResetModal);
+      cancelResetBtn.addEventListener("click", closeResetModal);
+      confirmResetBtn.addEventListener("click", performReset);
+      resetModal.addEventListener("click", function (e) {
+        if (e.target === resetModal) {
+          closeResetModal();
+        }
+      });
+
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && resetModal.classList.contains("open")) {
+          closeResetModal();
+        }
+      });
+
+      downloadBtn.addEventListener("click", downloadHtmlFile);
+
+      // Editor input, scroll, cursor, and keyboard listeners
+      codeEditor.addEventListener("input", function () {
+        updateLineNumbers();
+        updateCursorPosition();
+      });
+      codeEditor.addEventListener("scroll", syncLineScroll);
+      codeEditor.addEventListener("click", updateCursorPosition);
+      codeEditor.addEventListener("keyup", updateCursorPosition);
+      codeEditor.addEventListener("keydown", handleEditorKeydown);
+
+      // Resizer mouse and touch events
+      resizer.addEventListener("mousedown", startDrag);
+      document.addEventListener("mousemove", onDragMove);
+      document.addEventListener("mouseup", stopDrag);
+
+      resizer.addEventListener("touchstart", startDrag, { passive: false });
+      document.addEventListener("touchmove", onDragMove, { passive: false });
+      document.addEventListener("touchend", stopDrag);
+
+      resizer.addEventListener("dblclick", resetSplitRatio);
+      window.addEventListener("resize", updateViewportDimensions);
+
+      // Initialize saved theme preference if available
+      try {
+        const savedTheme = localStorage.getItem("html_live_editor_theme");
+        if (savedTheme === "dark") {
+          applyTheme(true);
+        }
+      } catch (err) {
+        // Fallback to default light theme
+      }
+
+      // Populate starter template, sync gutter, and render initial preview
+      codeEditor.value = STARTER_TEMPLATE;
+      updateLineNumbers();
+      updateCursorPosition();
+      runCode(false);
+      updateViewportDimensions();
+    })();
+  </script>
+</body>
+</html>
